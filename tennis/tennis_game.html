@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classic Tennis Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        canvas {
+            border: 2px solid #fff;
+            background-color: #008000;
+        }
+        .game-container {
+            text-align: center;
+        }
+        .score {
+            font-size: 24px;
+            margin: 10px 0;
+        }
+        .controls {
+            margin-top: 10px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="score">
+            <span>Player 1: <span id="score1">0</span></span>
+            <span style="margin-left: 50px;">Player 2: <span id="score2">0</span></span>
+        </div>
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        <div class="controls">
+            <p>Player 1: W/S keys | Player 2: ↑/↓ keys | Space: Start/Pause</p>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const score1Element = document.getElementById('score1');
+        const score2Element = document.getElementById('score2');
+
+        // Game state
+        let gameRunning = false;
+        let gameStarted = false;
+
+        // Paddle properties
+        const paddleWidth = 10;
+        const paddleHeight = 80;
+        const paddleSpeed = 5;
+
+        // Player 1 paddle (left)
+        const player1 = {
+            x: 20,
+            y: canvas.height / 2 - paddleHeight / 2,
+            width: paddleWidth,
+            height: paddleHeight,
+            dy: 0,
+            score: 0
+        };
+
+        // Player 2 paddle (right)
+        const player2 = {
+            x: canvas.width - 30,
+            y: canvas.height / 2 - paddleHeight / 2,
+            width: paddleWidth,
+            height: paddleHeight,
+            dy: 0,
+            score: 0
+        };
+
+        // Ball properties
+        const ball = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            radius: 10,
+            dx: 5,
+            dy: 3
+        };
+
+        // Key states
+        const keys = {};
+
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            
+            if (e.key === ' ') {
+                e.preventDefault();
+                if (!gameStarted) {
+                    gameStarted = true;
+                    gameRunning = true;
+                    gameLoop();
+                } else {
+                    gameRunning = !gameRunning;
+                    if (gameRunning) gameLoop();
+                }
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+
+        // Draw functions
+        function drawRect(x, y, width, height) {
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(x, y, width, height);
+        }
+
+        function drawCircle(x, y, radius) {
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawDottedLine() {
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        function render() {
+            // Clear canvas
+            ctx.fillStyle = '#008000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw center line
+            drawDottedLine();
+
+            // Draw paddles
+            drawRect(player1.x, player1.y, player1.width, player1.height);
+            drawRect(player2.x, player2.y, player2.width, player2.height);
+
+            // Draw ball
+            drawCircle(ball.x, ball.y, ball.radius);
+        }
+
+        function updatePaddles() {
+            // Player 1 controls (W/S)
+            if (keys['w'] && player1.y > 0) {
+                player1.y -= paddleSpeed;
+            }
+            if (keys['s'] && player1.y < canvas.height - paddleHeight) {
+                player1.y += paddleSpeed;
+            }
+
+            // Player 2 controls (Arrow keys)
+            if (keys['arrowup'] && player2.y > 0) {
+                player2.y -= paddleSpeed;
+            }
+            if (keys['arrowdown'] && player2.y < canvas.height - paddleHeight) {
+                player2.y += paddleSpeed;
+            }
+        }
+
+        function updateBall() {
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+
+            // Ball collision with top/bottom walls
+            if (ball.y - ball.radius <= 0 || ball.y + ball.radius >= canvas.height) {
+                ball.dy = -ball.dy;
+            }
+
+            // Ball collision with paddles
+            // Player 1 paddle
+            if (ball.x - ball.radius <= player1.x + player1.width &&
+                ball.y >= player1.y &&
+                ball.y <= player1.y + player1.height &&
+                ball.dx < 0) {
+                ball.dx = -ball.dx;
+                
+                // Add some angle based on where it hits the paddle
+                const hitPos = (ball.y - (player1.y + player1.height / 2)) / (player1.height / 2);
+                ball.dy = hitPos * 5;
+            }
+
+            // Player 2 paddle
+            if (ball.x + ball.radius >= player2.x &&
+                ball.y >= player2.y &&
+                ball.y <= player2.y + player2.height &&
+                ball.dx > 0) {
+                ball.dx = -ball.dx;
+                
+                // Add some angle based on where it hits the paddle
+                const hitPos = (ball.y - (player2.y + player2.height / 2)) / (player2.height / 2);
+                ball.dy = hitPos * 5;
+            }
+
+            // Ball goes out of bounds (scoring)
+            if (ball.x < 0) {
+                player2.score++;
+                score2Element.textContent = player2.score;
+                resetBall();
+            } else if (ball.x > canvas.width) {
+                player1.score++;
+                score1Element.textContent = player1.score;
+                resetBall();
+            }
+        }
+
+        function resetBall() {
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+            ball.dx = -ball.dx; // Reverse direction
+            ball.dy = (Math.random() - 0.5) * 6; // Random angle
+        }
+
+        function gameLoop() {
+            if (!gameRunning) return;
+
+            updatePaddles();
+            updateBall();
+            render();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Initial render
+        render();
+
+        // Display start message
+        ctx.fillStyle = '#fff';
+        ctx.font = '24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Press SPACE to start', canvas.width / 2, canvas.height / 2 + 50);
+    </script>
+</body>
+</html>
